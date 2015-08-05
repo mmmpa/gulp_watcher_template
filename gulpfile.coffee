@@ -12,8 +12,12 @@ plumber = require('gulp-plumber')
 argv = require('yargs').argv
 spawn = require('child_process').spawn
 
+_ = require 'lodash'
+
 path = require('path')
-root_path = path.join(__dirname, '../')
+rootPath = path.join(__dirname, '../')
+tempPath = path.join(__dirname, 'temp')
+publicJsPath = path.join(rootPath, 'public/js')
 
 gulp.task 'default', ->
   p = undefined
@@ -21,32 +25,46 @@ gulp.task 'default', ->
   spawnChildren = (e) ->
     if p
       p.kill()
-    p = spawn('gulp', [ 'watcher' ], stdio: 'inherit')
+    p = spawn('gulp', ['watcher'], stdio: 'inherit')
 
   gulp.watch 'gulpfile.coffee', spawnChildren
   spawnChildren null
 
 gulp.task 'watcher', ->
-  sass_watch = path.join(root_path, 'sass/**/*.sass')
-  coffee_watch = path.join(root_path, 'coffee/**/*.coffee')
-  jade_watch = path.join(root_path, 'jade/**/*.jade')
+  sassWatch = path.join(rootPath, 'src/sass/**/*.sass')
+  coffeeWatch = path.join(rootPath, 'src/coffee/**/*.coffee')
+  jadeWatch = path.join(rootPath, 'src/jade/**/*.jade')
 
-  gulp.watch(sass_watch).on 'change', (e) ->
-    dest = path.relative(root_path, e.path).split('/')
-    dest.shift()
-    dest.pop()
-    dest.unshift 'css'
-    gulp.src(e.path).pipe(plumber()).pipe(sass(compass: true)).pipe(minify(keepBreaks: false)).pipe gulp.dest(path.join(root_path, dest.join('/')))
+  split = (filePath)->
+    _(path.relative(rootPath, filePath).split('/')).drop(2).dropRight(1).value()
 
-  gulp.watch(coffee_watch).on 'change', (e) ->
-    dest = path.relative(root_path, e.path).split('/')
-    dest.shift()
-    dest.pop()
-    dest.unshift 'js'
-    gulp.src(e.path).pipe(plumber()).pipe(coffee()).pipe gulp.dest(path.join(root_path, dest.join('/')))
+  genPath = (dirs, filePath)->
+    dirs.concat(split(filePath)).join('/')
 
-  gulp.watch(jade_watch).on 'change', (e) ->
-    dest = path.relative(root_path, e.path).split('/')
-    dest.shift()
-    dest.pop()
-    gulp.src(e.path).pipe(plumber()).pipe(jade()).pipe gulp.dest(path.join(root_path, dest.join('/')))
+  gulp.watch(sassWatch).on 'change', (e) ->
+    dest = genPath(['public', 'css'], e.path)
+
+    gulp
+    .src e.path
+    .pipe plumber()
+    .pipe sass(compass: true)
+    .pipe minify(keepBreaks: false)
+    .pipe gulp.dest(path.join(rootPath, dest))
+
+  gulp.watch(coffeeWatch).on 'change', (e) ->
+    dest = genPath(['public', 'js'], e.path)
+
+    gulp
+    .src e.path
+    .pipe plumber()
+    .pipe coffee()
+    .pipe gulp.dest(path.join(rootPath, dest))
+
+  gulp.watch(jadeWatch).on 'change', (e) ->
+    dest = genPath(['public'], e.path)
+
+    gulp
+    .src e.path
+    .pipe plumber()
+    .pipe jade()
+    .pipe gulp.dest(path.join(rootPath, dest))
